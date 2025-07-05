@@ -2,7 +2,7 @@
 
 import { GlassCard } from '@/components/ui/glass-card'
 import { NeonButton } from '@/components/ui/neon-button'
-import { Users, Clock, Mic, Timer, MessageSquare } from 'lucide-react'
+import { Users, Clock, Mic, Timer, MessageSquare, Globe } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { LANGUAGES, LANGUAGE_LEVELS, generateAvatarUrl, getGuestAvatarUrl } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
@@ -97,6 +97,11 @@ export function RoomCard({ room, onJoin, timeRemaining }: RoomCardProps) {
               <h3 className="text-xl font-semibold text-white truncate">
                 {room.name}
               </h3>
+              {/* Language Badge */}
+              <div className="flex items-center gap-1 bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
+                <Globe className="w-3 h-3" />
+                <span>{language?.name}</span>
+              </div>
             </div>
             <div className="flex items-center gap-4 text-gray-400 text-sm">
               <div className="flex items-center gap-1">
@@ -125,9 +130,6 @@ export function RoomCard({ room, onJoin, timeRemaining }: RoomCardProps) {
         {/* Language & Level */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-gray-400 text-sm flex-wrap">
-            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
-              {language?.name}
-            </span>
             {languageLevel && (
               <span className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 ${languageLevel.color}`}>
                 <span>{languageLevel.icon}</span>

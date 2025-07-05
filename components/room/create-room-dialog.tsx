@@ -29,8 +29,9 @@ export function CreateRoomDialog() {
 
     setLoading(true)
     try {
+      // Set auto-delete to 24 hours from now (no 5-minute deletion)
       const autoDeleteAt = new Date()
-      autoDeleteAt.setMinutes(autoDeleteAt.getMinutes() + 5)
+      autoDeleteAt.setHours(autoDeleteAt.getHours() + 24)
 
       const { data, error } = await supabase
         .from('rooms')
@@ -69,6 +70,7 @@ export function CreateRoomDialog() {
   }
 
   const selectedLevel = LANGUAGE_LEVELS.find(level => level.code === languageLevel)
+  const selectedLanguageObj = LANGUAGES.find(lang => lang.code === language)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -92,8 +94,8 @@ export function CreateRoomDialog() {
             <div className="text-sm">
               <p className="text-yellow-300 font-medium mb-1">Auto-Deletion Policy</p>
               <p className="text-yellow-200">
-                Your room will be deleted after <strong>1 minute</strong> if no one joins, 
-                or after <strong>5 minutes</strong> of inactivity.
+                Your room will be deleted after <strong>1 minute</strong> if no one joins. 
+                Active rooms remain available for <strong>24 hours</strong>.
               </p>
             </div>
           </div>
@@ -131,6 +133,11 @@ export function CreateRoomDialog() {
                 ))}
               </SelectContent>
             </Select>
+            {selectedLanguageObj && (
+              <div className="text-sm text-blue-300 bg-blue-500/10 px-3 py-2 rounded-lg">
+                Creating room for <strong>{selectedLanguageObj.flag} {selectedLanguageObj.name}</strong> speakers
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -196,7 +203,7 @@ export function CreateRoomDialog() {
                 <ul className="text-blue-200 space-y-1">
                   <li>• Room created and waiting for participants</li>
                   <li>• Auto-deleted after 1 minute if no one joins</li>
-                  <li>• Auto-deleted after 5 minutes of inactivity</li>
+                  <li>• Active rooms remain available for 24 hours</li>
                 </ul>
               </div>
             </div>

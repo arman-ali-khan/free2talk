@@ -1,8 +1,10 @@
 "use client"
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { NeonButton } from '@/components/ui/neon-button'
 import { LANGUAGES } from '@/lib/supabase'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 interface Room {
   id: string
@@ -27,6 +29,32 @@ interface LanguageFilterProps {
 }
 
 export function LanguageFilter({ selectedLanguage, onLanguageChange, filteredRooms }: LanguageFilterProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  // Get unique languages that have active rooms
+  const activeLanguages = Array.from(new Set(filteredRooms.map(room => room.language)))
+  
+  // Filter LANGUAGES to only include those with active rooms, plus "all"
+  const languagesWithRooms = LANGUAGES.filter(lang => 
+    lang.code === 'all' || activeLanguages.includes(lang.code)
+  )
+  
+  // Show first 8 languages by default, rest when expanded
+  const visibleLanguages = isExpanded ? languagesWithRooms : languagesWithRooms.slice(0, 8)
+  const hasMoreLanguages = languagesWithRooms.length > 8
+
+  const getLanguageCount = (languageCode: string) => {
+    if (languageCode === 'all') {
+      return filteredRooms.length
+    }
+    return filteredRooms.filter(r => r.language === languageCode).length
+  }
+
+  // Don't show the filter if there are no rooms
+  if (filteredRooms.length === 0) {
+    return null
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -37,23 +65,47 @@ export function LanguageFilter({ selectedLanguage, onLanguageChange, filteredRoo
       <div className="max-w-6xl mx-auto">
         <h2 className="text-xl font-semibold text-white mb-4">Choose Language</h2>
         <div className="flex flex-wrap gap-2">
-          {LANGUAGES.map((language) => (
+          {visibleLanguages.map((language) => {
+            const count = getLanguageCount(language.code)
+            return (
+              <NeonButton
+                key={language.code}
+                variant={selectedLanguage === language.code ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => onLanguageChange(language.code)}
+                className="gap-2"
+              >
+                <span>{language.flag}</span>
+                <span>{language.name}</span>
+                {count > 0 && (
+                  <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
+                    {count}
+                  </span>
+                )}
+              </NeonButton>
+            )
+          })}
+          
+          {hasMoreLanguages && (
             <NeonButton
-              key={language.code}
-              variant={selectedLanguage === language.code ? 'primary' : 'secondary'}
+              variant="secondary"
               size="sm"
-              onClick={() => onLanguageChange(language.code)}
+              onClick={() => setIsExpanded(!isExpanded)}
               className="gap-2"
             >
-              <span>{language.flag}</span>
-              <span>{language.name}</span>
-              {selectedLanguage !== 'all' && language.code !== 'all' && (
-                <span className="text-xs bg-white/20 px-2 py-1 rounded-full">
-                  {filteredRooms.filter(r => r.language === language.code).length}
-                </span>
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="w-4 h-4" />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4" />
+                  Show More ({languagesWithRooms.length - 8} more)
+                </>
               )}
             </NeonButton>
-          ))}
+          )}
         </div>
       </div>
     </motion.div>

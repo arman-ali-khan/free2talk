@@ -149,10 +149,13 @@ export default function Home() {
     
     if (diff <= 0) return 'Expired'
     
-    const minutes = Math.floor(diff / (1000 * 60))
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
     
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    }
+    return `${minutes}m`
   }
 
   const getEmptyTimeRemaining = (emptySince: string | null) => {
@@ -217,15 +220,15 @@ export default function Home() {
           </div>
         </motion.div>
 
+        {/* Hero Section */}
+        <HeroSection />
+
         {/* Language Filter */}
         <LanguageFilter 
           selectedLanguage={selectedLanguage}
           onLanguageChange={setSelectedLanguage}
           filteredRooms={filteredRooms}
         />
-
-        {/* Hero Section */}
-        <HeroSection />
 
         {/* Auto-deletion Notice */}
         <DeletionNotice />

@@ -31,6 +31,7 @@ export function ChatPanel({ roomId, currentUser, onClose }: ChatPanelProps) {
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const messageChannelRef = useRef<any>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -42,9 +43,18 @@ export function ChatPanel({ roomId, currentUser, onClose }: ChatPanelProps) {
 
   useEffect(() => {
     loadMessages()
+    setupRealtimeMessages()
     
+    return () => {
+      if (messageChannelRef.current) {
+        messageChannelRef.current.unsubscribe()
+      }
+    }
+  }, [roomId, currentUser])
+
+  const setupRealtimeMessages = () => {
     // Set up real-time subscription for messages
-    const messageSubscription = supabase
+    messageChannelRef.current = supabase
       .channel(`room-${roomId}-messages`)
       .on(
         'postgres_changes',
@@ -56,18 +66,23 @@ export function ChatPanel({ roomId, currentUser, onClose }: ChatPanelProps) {
         },
         (payload) => {
           const newMessage = payload.new as any
-          setMessages(prev => [...prev, {
+          const messageWithCurrentUser = {
             ...newMessage,
             isCurrentUser: newMessage.username === currentUser
-          }])
+          }
+          
+          setMessages(prev => {
+            // Check if message already exists to prevent duplicates
+            const exists = prev.some(msg => msg.id === messageWithCurrentUser.id)
+            if (exists) return prev
+            return [...prev, messageWithCurrentUser]
+          })
         }
       )
-      .subscribe()
-
-    return () => {
-      messageSubscription.unsubscribe()
-    }
-  }, [roomId, currentUser])
+      .subscribe((status) => {
+        console.log('Message subscription status:', status)
+      })
+  }
 
   const loadMessages = async () => {
     try {

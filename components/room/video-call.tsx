@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { WebRTCManager } from '@/lib/webrtc'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/lib/store'
 import { GlassCard } from '@/components/ui/glass-card'
@@ -42,16 +41,19 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
   const [showUsers, setShowUsers] = useState(false)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [roomInfo, setRoomInfo] = useState<any>(null)
-  const webrtcRef = useRef<WebRTCManager | null>(null)
   const localAudioRef = useRef<HTMLAudioElement>(null)
   const presenceChannelRef = useRef<any>(null)
+  const localStreamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
 
-  const currentUsername = user?.user_metadata?.username || user?.email?.split('@')[0] || 'Guest'
+  const currentUsername = user?.user_metadata?.username || user?.email?.split('@')[0] || `Guest-${Date.now()}`
   const currentUserId = user?.id || `guest-${Date.now()}`
 
   useEffect(() => {
     loadRoomInfo()
-    initWebRTC()
+    initAudio()
     setupPresence()
 
     return () => {
@@ -74,24 +76,60 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
     }
   }
 
-  const initWebRTC = async () => {
+  const initAudio = async () => {
     try {
-      webrtcRef.current = new WebRTCManager()
-      webrtcRef.current.setRoomId(roomId)
-      
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: false // Audio only
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false
       })
+      
+      localStreamRef.current = stream
       
       if (localAudioRef.current) {
         localAudioRef.current.srcObject = stream
       }
+
+      // Set up audio analysis for speaking detection
+      audioContextRef.current = new AudioContext()
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      analyserRef.current = audioContextRef.current.createAnalyser()
+      analyserRef.current.fftSize = 256
+      source.connect(analyserRef.current)
+
+      // Start speaking detection
+      detectSpeaking()
       
       setIsConnected(true)
     } catch (error) {
-      console.error('Error initializing WebRTC:', error)
+      console.error('Error initializing audio:', error)
+      setIsConnected(false)
     }
+  }
+
+  const detectSpeaking = () => {
+    if (!analyserRef.current) return
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+    
+    const checkAudioLevel = () => {
+      if (!analyserRef.current) return
+      
+      analyserRef.current.getByteFrequencyData(dataArray)
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+      
+      const speaking = average > 20 && isAudioEnabled // Threshold for speaking detection
+      if (speaking !== isSpeaking) {
+        setIsSpeaking(speaking)
+      }
+      
+      requestAnimationFrame(checkAudioLevel)
+    }
+    
+    checkAudioLevel()
   }
 
   const setupPresence = async () => {
@@ -178,7 +216,11 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
     try {
       await supabase
         .from('rooms')
-        .update({ participant_count: count })
+        .update({ 
+          participant_count: count,
+          last_activity_at: new Date().toISOString(),
+          empty_since: count === 0 ? new Date().toISOString() : null
+        })
         .eq('id', roomId)
     } catch (error) {
       console.error('Error updating participant count:', error)
@@ -186,9 +228,8 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
   }
 
   const toggleAudio = async () => {
-    if (localAudioRef.current?.srcObject) {
-      const stream = localAudioRef.current.srcObject as MediaStream
-      const audioTrack = stream.getAudioTracks()[0]
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0]
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled
         const newAudioState = audioTrack.enabled
@@ -229,16 +270,23 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
 
   const cleanup = async () => {
     try {
+      // Stop local stream
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop())
+        localStreamRef.current = null
+      }
+
+      // Close audio context
+      if (audioContextRef.current) {
+        await audioContextRef.current.close()
+        audioContextRef.current = null
+      }
+
       // Untrack presence
       if (presenceChannelRef.current) {
         await presenceChannelRef.current.untrack()
         await presenceChannelRef.current.unsubscribe()
         presenceChannelRef.current = null
-      }
-
-      // Clean up WebRTC
-      if (webrtcRef.current) {
-        webrtcRef.current.cleanup()
       }
 
       // Update room participant count
@@ -311,8 +359,8 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
             >
               <GlassCard className="h-32 flex flex-col items-center justify-center relative overflow-hidden">
                 {/* Audio Visualization */}
-                <div className={`absolute inset-0 ${
-                  participant.isAudioEnabled 
+                <div className={`absolute inset-0 transition-all duration-300 ${
+                  participant.isAudioEnabled && (participant.isCurrentUser ? isSpeaking : true)
                     ? 'bg-gradient-to-br from-green-500/20 to-blue-500/20 animate-pulse' 
                     : 'bg-gray-800/50'
                 }`} />
@@ -325,9 +373,9 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
                       : generateAvatarUrl(participant.username, 64)
                     }
                     alt={participant.username}
-                    className={`w-16 h-16 rounded-full border-2 ${
-                      participant.isAudioEnabled 
-                        ? 'border-green-500' 
+                    className={`w-16 h-16 rounded-full border-2 transition-all duration-300 ${
+                      participant.isAudioEnabled && (participant.isCurrentUser ? isSpeaking : true)
+                        ? 'border-green-500 shadow-lg shadow-green-500/50' 
                         : 'border-gray-600'
                     } bg-gray-800`}
                   />
@@ -358,7 +406,7 @@ export function VideoCall({ roomId, onLeave }: VideoCallProps) {
                 </div>
 
                 {/* Speaking Indicator */}
-                {participant.isAudioEnabled && (
+                {participant.isAudioEnabled && (participant.isCurrentUser ? isSpeaking : true) && (
                   <div className="absolute bottom-2 right-2">
                     <div className="w-3 h-3 bg-green-500 rounded-full animate-ping" />
                   </div>
