@@ -110,16 +110,7 @@ export default function RoomPage() {
     }
 
     try {
-      // Update participant count
-      const { error } = await supabase
-        .from('rooms')
-        .update({ participant_count: room.participant_count + 1 })
-        .eq('id', roomId)
-
-      if (error) throw error
-
       setJoined(true)
-      setRoom(prev => prev ? { ...prev, participant_count: prev.participant_count + 1 } : null)
     } catch (error) {
       console.error('Error joining room:', error)
     }
@@ -129,15 +120,6 @@ export default function RoomPage() {
     if (!room) return
 
     try {
-      // Update participant count
-      const newCount = Math.max(0, room.participant_count - 1)
-      const { error } = await supabase
-        .from('rooms')
-        .update({ participant_count: newCount })
-        .eq('id', roomId)
-
-      if (error) throw error
-
       router.push('/')
     } catch (error) {
       console.error('Error leaving room:', error)
@@ -192,7 +174,7 @@ export default function RoomPage() {
                   <span className="text-3xl">{language?.flag}</span>
                   <h1 className="text-3xl font-bold text-white">{room.name}</h1>
                 </div>
-                <p className="text-gray-400">Audio chat room</p>
+                <p className="text-gray-400">Real-time audio chat room</p>
                 {room.description && (
                   <p className="text-gray-300 mt-2 text-sm">{room.description}</p>
                 )}
@@ -296,6 +278,9 @@ export default function RoomPage() {
               <div className="text-sm text-gray-400 bg-black/20 rounded-lg p-4">
                 <p className="mb-2">
                   <strong>Room ID:</strong> {roomId.slice(0, 8)}...
+                </p>
+                <p className="mb-2">
+                  <strong>Real-time:</strong> Live participant tracking
                 </p>
                 <p>
                   Make sure your microphone is ready before joining.

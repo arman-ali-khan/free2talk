@@ -20,6 +20,7 @@ export type Database = {
           max_participants: number
           description: string
           auto_delete_at: string
+          language_level: string
         }
         Insert: {
           id?: string
@@ -32,6 +33,7 @@ export type Database = {
           max_participants?: number
           description?: string
           auto_delete_at?: string
+          language_level?: string
         }
         Update: {
           id?: string
@@ -44,6 +46,7 @@ export type Database = {
           max_participants?: number
           description?: string
           auto_delete_at?: string
+          language_level?: string
         }
       }
       messages: {
@@ -119,3 +122,27 @@ export const LANGUAGES = [
   { code: 'polish', name: 'Polski', flag: '🇵🇱' },
   { code: 'turkish', name: 'Türkçe', flag: '🇹🇷' },
 ]
+
+// Language proficiency levels
+export const LANGUAGE_LEVELS = [
+  { code: 'any', name: 'Any Level', color: 'bg-gray-500/20 text-gray-300', icon: '🌟' },
+  { code: 'beginner', name: 'Beginner', color: 'bg-green-500/20 text-green-300', icon: '🌱' },
+  { code: 'upper-beginner', name: 'Upper Beginner', color: 'bg-green-600/20 text-green-400', icon: '🌿' },
+  { code: 'intermediate', name: 'Intermediate', color: 'bg-yellow-500/20 text-yellow-300', icon: '⭐' },
+  { code: 'upper-intermediate', name: 'Upper Intermediate', color: 'bg-orange-500/20 text-orange-300', icon: '🔥' },
+  { code: 'advanced', name: 'Advanced', color: 'bg-red-500/20 text-red-300', icon: '💎' },
+  { code: 'upper-advanced', name: 'Upper Advanced', color: 'bg-purple-500/20 text-purple-300', icon: '👑' },
+]
+
+// Generate avatar URL based on username
+export const generateAvatarUrl = (username: string, size: number = 40): string => {
+  const seed = username.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&size=${size}&backgroundColor=transparent`
+}
+
+// Get random avatar style for guests
+export const getGuestAvatarUrl = (guestId: string, size: number = 40): string => {
+  const styles = ['avataaars', 'bottts', 'identicon', 'initials', 'personas']
+  const style = styles[Math.abs(guestId.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % styles.length]
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${guestId}&size=${size}&backgroundColor=transparent`
+}
